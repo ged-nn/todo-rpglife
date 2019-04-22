@@ -19,7 +19,7 @@ Gaming for todo list as RPG
     * возвращаем очки массивом
     * array_add - возвращает сортированный массив
 
-### 22.04.2019 22:48:53
+## 22.04.2019 22:48:53
 * git log
 * git reset --hard ID
 * git push --force
