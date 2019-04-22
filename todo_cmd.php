@@ -1,0 +1,141 @@
+<?php
+class TaskCmd
+{
+    /* @var string The task as passed to the constructor. */
+    protected $rawCmd;
+    /* @var string The task, sans priority, completion marker/date. */
+    protected $cmd;
+    protected $id;
+    protected $rawId;
+
+    protected $param="";
+    // Определяем команды с которыми передаются ID.
+    protected $ListcmdNeedID=array("**","*","start","stop","step","finish","-");
+    protected $ListcmdOnlyOneID=array("*");
+    protected $correct=false;
+    
+    
+    public function __construct($text) {
+        $this->rawCmd = trim($text);
+        if (strlen($text) == 0) {
+            return;
+        }
+        $this->getCmdFromText($text);
+        if (in_array(explode(" ",$this->cmd)[1],$this->ListcmdNeedID))
+					$this->getIDFromText($text);
+        $this->getParamFromText();
+        $this->check_cmd();
+        $this->checkError();
+        
+        /*
+        $cmd_array = explode(" ", $cmd);
+        for ($i=0;$i<count($cmd_array);$i++)
+					$this->cmd=$cmd_array[0]." ".$cmd_array[1];
+        for ($i=2;$i<=count($cmd_array);$i++)
+					$this->param=trim($this->param." ".$cmd_array[$i]);
+			*/
+
+        //if (strpos($text,"todo done")===0)
+       
+        
+        //$this->rawCmd = $cmd;
+    }
+/*    
+    protected getIDfromRaw($cmd){
+			
+		}
+*/   
+		protected function check_cmd() {
+			$cmd_list=explode(" ",$this->cmd);
+			if ($cmd_list[0]=="todo")
+			{
+				switch ($cmd_list[1])
+				{
+					case "+":	$this->cmd=$cmd_list[0]." add";	break;
+					case "add":	$this->cmd=$cmd_list[0]." add";	break;
+					case "*":	$this->cmd=$cmd_list[0]." change";	break;
+					case "change":	$this->cmd=$cmd_list[0]." change";	break;
+					case "x":	$this->cmd=$cmd_list[0]." done";	break;
+					case "done":	$this->cmd=$cmd_list[0]." done";	break;
+					case "-":
+					case "del":
+					case "rm":	$this->cmd=$cmd_list[0]." del";	break;
+
+					case "step":	$this->cmd=$cmd_list[0]." step";	break;
+					case "clear":	$this->cmd=$cmd_list[0]." clear";	break;
+
+					case "start":
+					case "stop":
+					case "finish":	$this->cmd=$cmd_list[0]." test";	break;
+
+					
+				}
+{
+			}
+			
+		}
+	}
+		protected function checkError(){
+			$status=true;
+			if (count($this->id)>1)
+				if (in_array(explode(" ",$this->cmd)[1],$this->ListcmdOnlyOneID))
+					$status=false;
+					
+					$this->correct=$status;
+			return $status;
+}
+    protected function getCmdFromText($text) {
+        $text=strtolower($text);
+        
+        $pattern = "/^([a-z]+) ([a-z-+*]+)/";
+        if (preg_match($pattern, $text, $matches) == 1) {
+            // Rather than throwing exceptions around, silently bypass this
+            try {
+                $this->cmd = trim($matches[0]);
+            } catch (\Exception $e) {
+                return $input;
+            }
+        };
+    }
+    protected function getIDFromText($text) {
+				$text=trim(" ".substr($text,strlen($this->cmd)));
+        $pattern = "/^([0-9, ]+)/";
+#        $pattern = "/^([0-9,-]+)/";
+        
+        if (preg_match($pattern, $text, $matches) == 1) {
+            // Rather than throwing exceptions around, silently bypass this
+            try {
+							$this->rawId=trim($matches[0]);
+							$this->id=explode(",", trim($matches[0]));
+            } catch (\Exception $e) {
+                return $input;
+            }
+        };
+    }
+		protected function getParamFromText() {
+				$this->param = trim(substr($this->rawCmd,+strlen($this->cmd." ".$this->rawId)));
+		}
+		
+    public function getCmd() {
+        return $this->cmd;
+    }
+    public function getParam() {
+        return $this->param;
+    }
+    public function getId() {
+        return $this->id;
+    }
+}
+//$test[]= new 	TaskCmd("todo start 15,16,17 description");
+#$test[]= new 	TodoCmd("todo + 11,12,10 13 14 15 16 descripTion 90 test");
+#$test[]= new 	TodoCmd("todo * 11,12,10 13 14 15 16 descripTion 90 test");
+#$test[]= new 	TodoCmd("");
+/*
+
+echo "
+".$test[0]->getCmd()."
+".var_export($test,true)."
+";
+*/
+
+?>
