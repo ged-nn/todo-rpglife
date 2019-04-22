@@ -3,6 +3,11 @@ Gaming for todo list as RPG
 
 [Home page todo-rpglife](https://github.com/ged-nn/todo-rpglife)
 
+## 23.04.2019 00:26:06
+### readme.md
+
+[Описание формата файла](http://webdesign.ru.net/article/pravila-oformleniya-fayla-readmemd-na-github.html)
+
 ## 23.04.2019 00:05:14
 ### robot.php
     + Вывод таблицы с распределением очков по проектам и контекстам
