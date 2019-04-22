@@ -144,10 +144,39 @@ for($i=0;$i<count($task_list->task);$i++)
 		$score+=$score_cur;
 }
 */
+$projects_string="";
+$contexts_string="";
+	if (count($score['projects'])>0)
+	{
+	# Вывод распределения по проектам
+		$projects_string="
+| Project | Score |
+| ---- | ---- |
+		";
+		foreach ($score['projects'] as $key => $value)
+			$projects_string=$projects_string."| ".$key." | ".$value." |
+";
+		$projects_string=$projects_string."| **total** | **".$score['total']."** |
+";
+	}
+	if (count($score['contexts'])>0)
+	{
+		$contexts_string="
+| Context | Score |
+| ---- | ---- |
+";
+		foreach ($score['contexts'] as $key => $value)
+			$contexts_string=$contexts_string."| ".$key." | ".$value." |
+";
+	}
+
+debug("projects_string:".var_export($projects_string,true));
 return implode('
 ',$todo_list)."
 **Total: x".$count['x']."/+".$count['all']."/".($count['all']-$count['x'])."**
-**Score: ".$score."**";
+**Score: ".$score['total']."**
+".$projects_string."
+".$contexts_string;
 #."
 #".var_export($task_list->task, true);
 

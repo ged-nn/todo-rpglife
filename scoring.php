@@ -486,22 +486,27 @@ class Score {
 	
 	public function getScoreTaskList($taskList){
 		$score=0;
+		$_score['total']=0;
 		$_score['projects']="";
 		$_score['contexts']="";
 		for($i=0;$i<count($taskList);$i++)
 		{
-			$score_cur=$this->getScoreTask($taskList[$i])[total];
-			$score+=$score_cur;
-
 			$_score_cur=$this->getScoreTask($taskList[$i]);
 			$_score['projects']=$this->array_add($_score['projects'],$_score_cur['projects']);
 			$_score['contexts']=$this->array_add($_score['contexts'],$_score_cur['contexts']);
+			
+			$score_cur=$_score_cur[total];
+			$_score['total']+=$_score_cur[total];
+			$score+=$score_cur;
+
 			
 		debug("project score sum1: ".var_export($_score,true));
 			
 		}
 		debug("project score sum2: ".var_export($_score,true));
-		return $score;
+#		return $score;
+		return $_score;
+#		return $_score['total'];
 	}
 /*  # Функция по сохранению результатов в файл
   	public function save2file($taskList,$filename){
@@ -520,6 +525,9 @@ class Score {
 		foreach (array_slice(func_get_args(), 1) as $aRay) {
 			foreach (array_intersect_key($aRay, $aRes) as $key => $val) $aRes[$key] += $val;
 				$aRes += $aRay; }
+#		ksort($aRes); // Отсортировать по ключу
+		arsort($aRes); // Отсортировать по значению по убыванию
+
 		return $aRes; }
 }
 
