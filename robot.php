@@ -3,6 +3,7 @@
 #exit;
 
 		include_once 'rpglife/scoring.php';
+		include_once 'rpglife/task.php';
 		include_once 'rpglife/todo_cmd.php';
 		include_once 'robot.cfg';
 
@@ -104,8 +105,7 @@ function todo_list($full=false,$filter=""){
 	if ($filter!="")
 	{
 		$filter_format=todo_format_pre($filter,true);
-		$todo_list[]="
-**Used filter:** ".$filter." : ".$filter_format;
+		$todo_list[]="**Used filter:** ".$filter." : ".str_replace('|','\|',$filter_format);
 	}
 		$filter=$filter_format;
 	for($i=0;$i<count($file_array);$i++)
@@ -152,7 +152,7 @@ $contexts_string="";
 		$projects_string="
 | Project | Score |
 | ---- | ---- |
-		";
+";
 		foreach ($score['projects'] as $key => $value)
 			$projects_string=$projects_string."| ".$key." | ".$value." |
 ";
@@ -170,9 +170,18 @@ $contexts_string="";
 ";
 	}
 
+$task_list_table="
+
+| Task |
+| ---- |";
+
+for ($i=0;$i<count($todo_list);$i++)
+	$task_list_table=$task_list_table."
+| ".todo_format($todo_list[$i])." |";
+
 debug("projects_string:".var_export($projects_string,true));
-return implode('
-',$todo_list)."
+return $task_list_table."
+
 **Total: x".$count['x']."/+".$count['all']."/".($count['all']-$count['x'])."**
 **Score: ".$score['total']."**
 ".$projects_string."
@@ -664,7 +673,9 @@ $data = '{
   ]
 }';
 */
-
+#debug("
+#Вывод: ".var_export($data,true)."
+#");
 header('Content-Type: application/json');
 #echo json_encode($data);
 echo $data;
@@ -848,7 +859,7 @@ function todo_add($text)
 $text=get_message(get_json());
 $get_messages=get_json();
 $get_cmd=check_cmd($text);
-#$ged_cmd_ = new TaskCmd();
+$get_cmd_ = new TaskCmd($text);
 switch ($get_cmd)
 {
 	case "clear history":
@@ -886,8 +897,61 @@ switch ($get_cmd)
 		sendmessage("##### Your todo list:\n".todo_format(todo_list(true,"today")));
                 break;
 	case "todo x":
-                $TASK_TEXT=todo_done(substr($text,6)-1);
-                sendmessage("##### Task #".substr($text,6)." mark as done.\n **Text task:**".$TASK_TEXT." \n**Your todo list:**\n".todo_format(todo_list(true,"today")));
+		// Load task list
+		$roomID=get_cur_roomid(get_json());
+		$file='/usr/data/script/todo/'.$roomID.'.txt';
+				debug("\ntest\n");
+
+		$task_list= new Task_List($file);
+		debug("\n***  TEST \n");
+		$TaskCmd=new 	TaskCmd($text);
+		$TODO_CUR_BLOCK="";
+		if (!empty($TaskCmd->getParam()))
+			$TODO_CUR_BLOCK="x_time:".date('Y-m-d')." ".$TaskCmd->getParam();
+		$TEXT_MESSAGE="";
+		
+		$TASK_ID_LIST=$TaskCmd->getId();
+		debug("Task_CMD:	".var_export($TaskCmd,true));
+		
+		#debug("Task list:	".var_export($task_list,true));
+		
+		for ($i=0;$i<count($TASK_ID_LIST);$i++)
+		{
+			$TODO_ID=$TaskCmd->getId()[$i];
+			debug("TODO_ID:	".var_export($TODO_ID,true));
+			//$TODO_OLD=todo_get_text($TODO_ID);
+			$TODO_OLD=$task_list->task[$TODO_ID-1];
+#			debug("
+#			TODO_OLD:	".var_export($TODO_OLD,true));
+			
+//			todo_done($TODO_ID-1);
+			debug("recurrence
+			");
+			if ($task_list->task[$TODO_ID-1]->recurrence()!==false)
+			{
+				$task_list->task[]=new Task($task_list->task[$TODO_ID-1]->recurrence());
+			}
+			$task_comment_new="complete_t:".date('H:i:s');
+			if (strlen($TaskCmd->getParam())>0)
+				$task_comment_new=$task_comment_new." ".$TaskCmd->getParam();
+			$task_list->task[$TODO_ID-1]->setCompleted($task_comment_new);
+			
+#			$task_list->task[$TODO_ID-1]->setCompleted("complete_t:".date('Y-m-d_H-i-s')." test complete");
+			$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Task #".$TODO_ID." mark as done. \n**Text task:**".$TODO_OLD." ".$TODO_CUR_BLOCK."\n";
+#			debug("
+#			TEXT_MESSAGE1:	".var_export($TEXT_MESSAGE,true));
+		}
+		$task_list->save();
+		$TODO_NEW_FILTER=date('Y-m-d');
+		#$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Your todo list:\n".todo_format(todo_list(true,$TODO_NEW_FILTER));
+#		$TEXT_MESSAGE="Complete";
+		
+#		debug("
+#		Message2:".var_export($task_list,true));
+		
+		sendmessage($TEXT_MESSAGE);
+#                $TASK_TEXT=todo_done(substr($text,6)-1);
+#                sendmessage("##### Task #".substr($text,6)." mark as done.\n **Text task:**".$TASK_TEXT." \n**Your todo list:**\n".todo_format(todo_list(true,"today")));
                 break;
 	case "todo *":
 		$TODO_NEW=trim(substr($text,6));
@@ -913,18 +977,18 @@ switch ($get_cmd)
                 sendmessage("Task #".substr($text,11)." changed. \nYour todo list:\n".todo_format(todo_list()));
                 break;
 	case "todo step":
-		$TaskCur=new 	TaskCmd($text);
+		$TaskCmd=new TaskCmd($text);
 		$TEXT_MESSAGE="";
-		#debug("Get_cmd:	".var_export($TaskCur,true));
-		$TODO_CUR_BLOCK="step:".date('Y-m-d')." ".$TaskCur->getParam();
+		#debug("Get_cmd:	".var_export($TaskCmd,true));
+		$TODO_CUR_BLOCK="step:".date('Y-m-d')." ".$TaskCmd->getParam();
 		
 		debug("       ************ ");
 		debug("
 		TODO_CUR_BLOCK:	".var_export($TODO_CUR_BLOCK,true));
-		$TASK_ID_LIST=$TaskCur->getId();
+		$TASK_ID_LIST=$TaskCmd->getId();
 		for ($i=0;$i<count($TASK_ID_LIST);$i++)
 		{
-			$TODO_ID=$TaskCur->getId()[$i];
+			$TODO_ID=$TaskCmd->getId()[$i];
 			$TODO_OLD=todo_get_text($TODO_ID);
 			debug("
 			TODO_OLD:	".var_export($TODO_OLD,true));
@@ -981,12 +1045,14 @@ switch ($get_cmd)
 	case "todo list":
 		$filter=substr($text,10);
 		sendmessage("**Your todo list:**
-".todo_format(todo_list(false,$filter)));
+".todo_list(false,$filter));
+#".todo_format(todo_list(false,$filter)));
 		break;
 	case "todo list all":
 		$filter=substr($text,14);
 		sendmessage("**Your todo list:**
-".todo_format(todo_list(true,$filter)));
+".todo_list(true,$filter));
+#".todo_format(todo_list(true,$filter)));
 		break;
 	case "todo clear":
 		todo_clear();

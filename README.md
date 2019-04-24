@@ -8,6 +8,23 @@ Gaming for todo list as RPG
 
 [Описание формата файла](http://webdesign.ru.net/article/pravila-oformleniya-fayla-readmemd-na-github.html)
 
+## 24.04.2019 22:33:28
+### robot.php
+    * todo_list - поправил вывод. Стало более аккуратно
+    * todo x - через классы сделано
+    * todo x1,2,3 - можно закрывать сразу несколько задач
+    * todo x1 комментарий - будет добавляться комментарий к закрытию задачи
+
+### task.php
+    + Перенес класс задач в [этот файл](task.php). Будем надеяться, что так читаемее
+    + Task->recurrence
+    + Task->setComplete
+    + Task_List->load
+    + Task_List->save
+    
+### scoring.php
+    - Убрал классы Task_List и Task
+
 ## 23.04.2019 00:05:14
 ### robot.php
     + Вывод таблицы с распределением очков по проектам и контекстам

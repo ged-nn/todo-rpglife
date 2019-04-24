@@ -1,16 +1,23 @@
 <?php
+/*
+		include_once 'rpglife/scoring.php';
+		include_once 'rpglife/task.php';
+		include_once 'rpglife/todo_cmd.php';
+		include_once 'robot.cfg';
+*/
 class TaskCmd
 {
     /* @var string The task as passed to the constructor. */
     protected $rawCmd;
     /* @var string The task, sans priority, completion marker/date. */
     protected $cmd;
+    protected $cmdRaw;
     protected $id;
     protected $rawId;
 
     protected $param="";
     // Определяем команды с которыми передаются ID.
-    protected $ListcmdNeedID=array("**","*","start","stop","step","finish","-");
+    protected $ListcmdNeedID=array("**","*","start","stop","step","finish","-","x","done");
     protected $ListcmdOnlyOneID=array("*");
     protected $correct=false;
     
@@ -21,10 +28,11 @@ class TaskCmd
             return;
         }
         $this->getCmdFromText($text);
+	$this->check_cmd();
+
         if (in_array(explode(" ",$this->cmd)[1],$this->ListcmdNeedID))
 					$this->getIDFromText($text);
         $this->getParamFromText();
-        $this->check_cmd();
         $this->checkError();
         
         /*
@@ -49,6 +57,8 @@ class TaskCmd
 			$cmd_list=explode(" ",$this->cmd);
 			if ($cmd_list[0]=="todo")
 			{
+			        $this->cmdRaw=$cmd_list[0]." ".$cmd_list[1];
+
 				switch ($cmd_list[1])
 				{
 					case "+":	$this->cmd=$cmd_list[0]." add";	break;
@@ -98,23 +108,27 @@ class TaskCmd
         };
     }
     protected function getIDFromText($text) {
-				$text=trim(" ".substr($text,strlen($this->cmd)));
-        $pattern = "/^([0-9, ]+)/";
+#	echo "getIDFromText: ".var_export($text,true);
+				$text=trim(substr($text,strlen($this->cmdRaw)));
+#	echo "\ngetIDFromText2: ".var_export($text,true);
+				
+        $pattern = "/^([0-9,]+)/";
 #        $pattern = "/^([0-9,-]+)/";
         
         if (preg_match($pattern, $text, $matches) == 1) {
             // Rather than throwing exceptions around, silently bypass this
             try {
 							$this->rawId=trim($matches[0]);
-							$this->id=explode(",", trim($matches[0]));
+							$this->id=array_unique(explode(",", trim($matches[0])));
+							rsort($this->id);
             } catch (\Exception $e) {
                 return $input;
             }
         };
     }
-		protected function getParamFromText() {
-				$this->param = trim(substr($this->rawCmd,+strlen($this->cmd." ".$this->rawId)));
-		}
+    protected function getParamFromText() {
+	$this->param = trim(substr($this->rawCmd,strlen($this->cmdRaw." ".$this->rawId)));
+    }
 		
     public function getCmd() {
         return $this->cmd;
@@ -126,16 +140,17 @@ class TaskCmd
         return $this->id;
     }
 }
+/*
 //$test[]= new 	TaskCmd("todo start 15,16,17 description");
 #$test[]= new 	TodoCmd("todo + 11,12,10 13 14 15 16 descripTion 90 test");
-#$test[]= new 	TodoCmd("todo * 11,12,10 13 14 15 16 descripTion 90 test");
+$test[]= new 	TaskCmd("todo x 11,12,10 13 14 15 16 descripTion 90 test");
 #$test[]= new 	TodoCmd("");
-/*
+
 
 echo "
 ".$test[0]->getCmd()."
 ".var_export($test,true)."
 ";
-*/
 
+*/
 ?>
