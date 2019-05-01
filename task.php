@@ -10,7 +10,7 @@ class Task_List {
 		$this->file=$file;
 		$this->filter=$filter;
 		if (!empty($file))
-		$this->load($full,$this->filter);
+			$this->load($full,$this->filter);
 	}
 	
 	public function count($type="open"){
@@ -40,28 +40,51 @@ class Task_List {
 		$this->task[]=new Task($file_array[$i]);
 	}
 	}
+	function add($text){
+	    $text=date('Y-m-d').' '.$text;
+	    $new_task=new Task($text);
+	    if ($this->getIdByText($text)==false)
+		$this->task[]=$new_task;
+	    else
+		return "Failed. Duplicate task id: ".implode(",",$this->getIdByText($text) );
+	    return $new_task;
+	}
+	
 	
 	function save() {
 		$file=$this->file;
-		
-		debug("
-		
-		SAVE:
-		".var_export($this,true));
-#    $file_array = file($file);
-#		$file_array = array_map('ltrim', $file_array);
-#		$file_array = array_map('trim', $file_array);
-//		$this->task=array_diff($this->task, array('', NULL, false));
- 	for($i=0;$i<count($this->task);$i++)
-        {
+	    for($i=0;$i<count($this->task);$i++)
+	    {
                 if ((strlen($this->task[$i]->getRawTask())===0))
 		unset($this->task[$i]);
-	}
+	    }
 
 #		sort($file_array);
 		sort($this->task);
 		file_put_contents($file, implode ('
-',$this->task));
+',$this->task).'
+');
+	}
+	public function getIdByHash($hash) {
+	    for($i=0;$i<count($this->task);$i++)
+	    {
+                if ($this->task[$i]->hash()==$hash)
+		    $idSearch[]=$i;
+	    }
+	    if (isset($idSearch))
+		return $idSearch;
+		else return false;
+	}
+	
+	public function getIdByText($text) {
+	    for($i=0;$i<count($this->task);$i++)
+	    {
+                if ($this->task[$i]->getRawTask()==$text)
+		    $idSearch[]=$i;
+	    }
+	    if (isset($idSearch))
+		return $idSearch;
+		else return false;
 	}
 }
 
@@ -405,6 +428,7 @@ class Task
 				$this->__construct($rawTask);
     }
 		public function recurrence(){
+			// Возвращает текст новой задачи на основе текущей с обновленными тэгами t и due
 	$text=$this->rawTask;
 	$pattern = '/\brec:(?P<count>[0-9]*)(?P<period>[dwmy])\b/i';
 #debug($text);
@@ -425,11 +449,20 @@ class Task
 //	if (count($this->metadata)>0)
 		foreach ($this->metadata as $key => $value)
 		{
+			$changeFlag=false;
+			$value_new="";
 			if (($key=="due")|| ($key=="t"))
 			{
+				$changeFlag=true;
 				$value_new=date( "Y-m-d",strtotime($value."+".$result['count']." ".$period));
-				$text=str_replace($key.":".$value,$key.":".$value_new,$text);
 			}
+			if ($key=="rec_count")
+				{
+					$changeFlag=true;
+					$value_new=$value+1;
+				}
+			if ($changeFlag)
+				$text=str_replace($key.":".$value,$key.":".$value_new,$text);
 
 /*			switch ($key)
 			{
@@ -450,7 +483,12 @@ class Task
 		$text=preg_replace("/(^|\([A-Z]\)) ?[0-9-]* /","$1 ".$date_today." ",$text);
 		return trim($text);
 }
-
+    public function hash($short=true){
+	if ($short)
+	    return "h".substr(crc32($this->rawTask),0,4);
+	else
+	    return crc32($this->rawTask);
+    }
 }
 
 ?>

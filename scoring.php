@@ -30,6 +30,7 @@ class Score {
 		$score_table['age+']=-1; # Штраф за просрочку
 		$score_table['age-']=5; # Награда за досрочное выполнение
 		$score_table['priority']=5; # Продумать зависимость награды от приоритета.
+		$score_table['rec_count']=-1; # Баллы за повторение. Не продумано. Идейно должно быть что-то типа процентов от повтора
 
 		$score=0;
 		$score+=$score_table['create'];
@@ -38,26 +39,30 @@ class Score {
 
 		debug("score_age start:".$score."  ");
 		$age=0;
-#		debug("
-#		".var_export($task,true));
+		$age=$task->age();
+
 		if ($task->isCompleted())
 		{
 			$score+=$score_table['complete'];
-		$age=$task->age();
-		if ($age==0)
-			$score+=$score_table['age0'];
-		elseif ($age>0)
-			$score+=(1+$age)*$score_table['age+'];
+			if (($task->__isset("due"))||($task->__isset("t")))
+			if ($age==0)
+				$score+=$score_table['age0'];
+			elseif ($age>0)
+				$score+=(1+$age)*$score_table['age+'];
 			elseif ($age<0)
-			$score+=(-$age)*$score_table['age-'];
+				$score+=(-$age)*$score_table['age-'];
+		}
+		else
+		{
+			if (($task->__isset("due"))||($task->__isset("t")))
+			{
+				if ($age>0)
+				$score+=($age)*$score_table['age+'];
+			#	if ($age<0)
+			#	$score+=(-$age)*$score_table['age-'];
+			}
 
-		debug("score_age stop:".$score." age:".$age."
-		");
-			
-#	echo "
-#	Возраст".$task->getRawTask().":".var_export($task->age(),true)."
-#	";
-	}
+		}
 		if ($task->__isset("due")) $score+=$score_table['due'];
 		if ($task->__isset("t")) $score+=$score_table['t'];
 		if ($task->__isset("step"))
@@ -68,6 +73,16 @@ class Score {
 		{
 			$prior2alf=26-(ord(strtoupper($task->getPriority())) - ord('A'));
 			$score+=$prior2alf;
+		}
+		
+		if ($task->__isset("rec_count"))
+		{
+			if ($task->__get("rec_count")!=0)
+			{
+				$percent=1/(real)$task->__get("rec_count");
+#			$score=$score*$percent*$score_table['rec_count'];
+				$score=$score*$percent;
+			}
 		}
 		
 		$_score['total']=$score;

@@ -7,6 +7,18 @@
 		include_once 'rpglife/todo_cmd.php';
 		include_once 'robot.cfg';
 
+include_once('rocket-chat-rest-client/httpful.phar');
+include_once 'rocket-chat-rest-client/src/RocketChatClient.php';
+include_once 'rocket-chat-rest-client/src/RocketChatUser.php';
+include_once 'rocket-chat-rest-client/src/RocketChatChannel.php';
+include_once 'rocket-chat-rest-client/src/RocketChatGroup.php';
+include_once 'rocket-chat-rest-client/src/RocketChatSettings.php';
+include_once 'rocket-chat-rest-client/src/RocketChatWebhuk.php';
+
+define('REST_API_ROOT', '/api/v1/');
+define('ROCKET_CHAT_INSTANCE', 'https://jabber.stnn.ru');
+
+
 class ToDo {
 	public $id;
 	public $text;
@@ -26,10 +38,16 @@ class ToDo {
 }
 
 
-function debug($text)
+function debug($text,$var=false)
 {
-	$file='/usr/data/script/robot.log';
-	file_put_contents($file, $text, FILE_APPEND);
+	$file='robot.log';
+	if (!$var)
+		$message=$text;
+	else
+		$message=var_export($text,true);
+
+	file_put_contents($file, $message."
+", FILE_APPEND);
 }
 
 function history_autoclear_save($user,$text)
@@ -96,7 +114,7 @@ return $result;
 
 */
 
-function todo_list($full=false,$filter=""){
+function todo_list($full=false,$filter="",$filter_score=""){
 	$roomID=get_cur_roomid(get_json());
         $file='/usr/data/script/todo/'.$roomID.'.txt';
 	$file_array = file($file);
@@ -104,10 +122,23 @@ function todo_list($full=false,$filter=""){
 	$count['x']=0;
 	if ($filter!="")
 	{
+		if (strpos($filter,"score bad")!==false)
+		{
+			
+			$filter_score=0;
+			$filter=trim(str_replace("score bad","",$filter));
+		}
+		$pattern = "/^(h\d{4})/";
+		if (preg_match($pattern, $filter, $matches) == 1) {
+			$filter_hash=$matches[1];
+			$filter="";
+		}
 		$filter_format=todo_format_pre($filter,true);
 		$todo_list[]="**Used filter:** ".$filter." : ".str_replace('|','\|',$filter_format);
-	}
 		$filter=$filter_format;
+	}
+		$task_list= new Task_List($file);
+		$score_count= new Score;
 	for($i=0;$i<count($file_array);$i++)
 	{
 		if (($full==false) && (strpos($file_array[$i],"x ")===0))
@@ -116,10 +147,22 @@ function todo_list($full=false,$filter=""){
 #			if (strpos($file_array[$i],$filter)===false)
 			if (preg_match('/'.$filter.'/',$file_array[$i]) == 0)
 				continue;
+		if ($filter_score!="")
+		{
+			if ($score_count->getScoreTask($task_list->task[$i])['total']>$filter_score)
+				continue;
+		}
+		if (isset($filter_hash))
+		{
+			if ($task_list->task[$i]->hash()!=$filter_hash)
+				continue;
+		}
+
 		$count['all']++;
 		if (strpos($file_array[$i],"x ")===0)
 			$count['x']++;
-		$todo_list[]=trim($i+1 . ": " . $file_array[$i]);
+		$todo_list[]=trim($i+1 . ": " . trim($file_array[$i]). " score:".$score_count->getScoreTask($task_list->task[$i])['total']." hash:".$task_list->task[$i]->hash());
+#		$todo_list[]=trim($i+1 . ": " . trim($file_array[$i]));
 	}
 /*	else
 	{
@@ -132,11 +175,10 @@ function todo_list($full=false,$filter=""){
 */
 
 		$task_list= new Task_List($file,$full,$filter);
-//		$score=scoring_tasks($task_list->task);
+#		$score=scoring_tasks($task_list->task);
 
 $score=0;
-$score_count= new Score;
-$score= $score_count->getScoreTaskList($task_list->task);
+$score=$score_count->getScoreTaskList($task_list->task);
 /*
 for($i=0;$i<count($task_list->task);$i++)
 	{
@@ -237,8 +279,11 @@ function todo_format_pre($todo_text,$full_text=false)
 {
         $string = $todo_text;
 	$date_today=date('Y-m-d');
+	$date_now=date('Y-m-d_H-i-s');
+
 //	$date_tomorrow=date('Y-m-d',mktime(0, 0, 0, date("m")  , date("d")+1, date("Y")));
 	$date_tomorrow=date('Y-m-d',strtotime("+1 day"));
+
 
 // дни недели
 	$data_monday=date('Y-m-d',strtotime("next Monday"));
@@ -257,6 +302,10 @@ function todo_format_pre($todo_text,$full_text=false)
 
 	$date_week=date('Y-m-d',strtotime("friday this week"));
 	$date_week_next=date('Y-m-d',strtotime("next friday +1 week"));
+
+	$pattern[] = '/ (test):(now|сейчас)/i';
+	$replacement[] = ' ${1}:'.$date_now;
+
 
 	$pattern[] = '/ (due|t):(today|сегодня)/i';
 	$replacement[] = ' ${1}:'.$date_today;
@@ -574,37 +623,6 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, array(
 }
 
 
-
-function login()
-{
-	include_once 'robot.cfg';
-	$data = array("user" => $USER, "password"=> $PASS );
-//	$data_string = json_encode($data);
-	$result =  json_request("login",$data);
-	$result_debug=var_export($result, true);
-//	debug($result_debug);
-	$AUTH['userId']=$result->data->userId;
-	$AUTH['authToken']=$result->data->authToken;
-        return $AUTH;
-}
-
-function clear_history($authToken,$ROOM_ID)
-{
-	$data = array("roomId" => $ROOM_ID,"excludePinned" => true, "latest"=> "2019-12-09T13:42:25.304Z", "oldest"=> "2011-08-30T13:42:25.304Z");
-	$result =  json_request_a($authToken,"rooms.cleanHistory",$data);
-//	return $result;
-	return $data;
-}
-
-function clear_history_old($authToken,$ROOM_ID)
-{
-        $data = array("roomId" => $ROOM_ID, "latest"=> date('Y-m-d',strtotime( '-1 days' ))."T".date('H:i:s').".304Z", "oldest"=> "2011-08-30T13:42:25.304Z");
-//        $data = array("roomId" => $ROOM_ID, "latest"=> "2018-06-28"."T01:01:25.304Z", "oldest"=> "2011-08-30T13:42:25.304Z");
-        $result =  json_request_a($authToken,"rooms.cleanHistory",$data);
-        return $result;
-//	return  $data;
-}
-
 function cron_add($roomID)
 {
 	$get_messages=get_json();
@@ -644,55 +662,6 @@ function get_message($json)
         return $json['text'];
 }
 
-function escapeJsonString($value) { # list from www.json.org: (\b backspace, \f formfeed)
-    $escapers = array("\\", "/", "\"", "\n", "\r", "\t", "\x08", "\x0c");
-    $replacements = array("\\\\", "\\/", "\\\"", "\\n", "\\r", "\\t", "\\f", "\\b");
-    $result = str_replace($escapers, $replacements, $value);
-    return $result;
-}
-
-function sendmessage($text)
-{
-#$text_valid=json_encode($text,JSON_PARTIAL_OUTPUT_ON_ERROR );
-$text_valid=escapeJsonString($text);
-
-$data = '{
-  "text": "'.$text_valid.'"}';
-/*  "attachments": [
-    {
-      "title": "'.$text.'"
-        }
-        ]
-        }';
-/*
-      "title_link": "https://rocket.chat",
-      "text": "Rocket.Chat, the best open source chat",
-      "image_url": "https://rocket.chat/images/mockup.png",
-      "color": "#764FA5"
-    }
-  ]
-}';
-*/
-#debug("
-#Вывод: ".var_export($data,true)."
-#");
-header('Content-Type: application/json');
-#echo json_encode($data);
-echo $data;
-#echo addslashes($data);
-exit;
-}
-
-
-
-$AuthToken=login();
-/*
-$data=clear_history($AuthToken,'vbJoGzvM8kqtXQX4w');
-#$qqq=var_export($data, true);
-
-echo $qqq;
-exit;
-*/
 function check_cmd($text)
 {
 	$text=strtolower($text);
@@ -744,6 +713,7 @@ function todo_help()
 * **todo (+|add) Текст задачи** - Создание новой задачи
 * **todo list _строка фильтра_** - список задач, исключая выполненные с фильтром (regexp) по данной строке. Если фильтр пустой, то выводит все задачи.
 * **todo list all _строка фильтра_** - список всех задач, включая выполненные с фильтром (regexp) по данной строке. Если фильтр пустой, то выводит все задачи.
+* **todo list __score bad__ _строка фильтра_** - аналогично верхнему, но выводит только просроченные задачи
 * **todo (done|x) № задачи** - отметить задачу выполненной 
 * **todo (del|-) № задачи** - удалить задачу
 * **todo (change|*) № задачи Новый текст задачи** - изменить задачу
@@ -853,105 +823,142 @@ function todo_add($text)
 		return "**id ".todo_get_id($text).":** ".$text;
 	else
 		return $text;
-//	sendmessage("Добавлена задача:".$text);
+//	$WebHook->sendmessage("Добавлена задача:".$text);
 }
 
-$text=get_message(get_json());
-$get_messages=get_json();
+$WebHook= new \RocketChat\WebHook();
+$text=$WebHook->postData['text'];
+$roomID=$WebHook->postData['channel_id'];
+$file='/usr/data/script/todo/'.$roomID.'.txt';
+#$get_messages=get_json();
+#debug($WebHook,1);
+$get_messages=$WebHook->postData;
 $get_cmd=check_cmd($text);
 $get_cmd_ = new TaskCmd($text);
+if (count($WebHook->text)>1)
+	$get_cmd_ = new TaskCmd($WebHook->text[0]);
+debug($get_cmd_,1);
 switch ($get_cmd)
 {
 	case "clear history":
-		$roomID=get_cur_roomid(get_json());
-		$result=clear_history($AuthToken,$roomID);
-//		sendmessage("run clear history ".$roomID);
-		sendmessage("Complete. Need reload. (**Ctrl + R**)");
-//                sendmessage("Complete. Need reload. (**Ctrl + R**)".var_export($result,true));
-
+		$api = new \RocketChat\Client();
+		$admin = new \RocketChat\User($USER, $PASS);
+		$admin->login();
+		$channel = new \RocketChat\Channel($WebHook->postData['channel_name']);
+		$channel->id=$WebHook->postData['channel_id'];
+		if ($channel->clear_history())
+			$WebHook->sendmessage("Complete. Need reload. (**Ctrl + R**)");
+		else 
+			$WebHook->sendmessage("Failed.");
 		break;
+
         case "clear history old":
-                $roomID=get_cur_roomid(get_json());
-                $result=clear_history_old($AuthToken,$roomID);
-//              sendmessage("run clear history ".$roomID);
-//                sendmessage("Complete old. Need reload. (**Ctrl + R**)".var_export($result,true));
-                sendmessage("Complete before 24h. Need reload. (**Ctrl + R**)");
+		$api = new \RocketChat\Client();
+		$admin = new \RocketChat\User($USER, $PASS);
+		$admin->login();
+		$channel = new \RocketChat\Channel($WebHook->postData['channel_name']);
+		$channel->id=$WebHook->postData['channel_id'];
+		if ($channel->clear_history("-1"))
+			$WebHook->sendmessage("Complete before 24h. Need reload. (**Ctrl + R**)");
+		else 
+			$WebHook->sendmessage("Failed.");
                 break;
 
-
-
 	case "help":
-		sendmessage(help());
+		$WebHook->sendmessage(help());
 		break;
 	case "todo":
-#		sendmessage("command todo get text:".$text."
-		sendmessage(todo_help());
+		$WebHook->sendmessage(todo_help());
 		break;
 	case "todo +":
-		$TASK_TEXT=todo_add(substr($text,6));
-		sendmessage("Добавлена задача: \n".todo_format($TASK_TEXT));
+		//$TASK_TEXT=todo_add(substr($text,6));
+		$TEXT_MESSAGE="";
+		$task_comment_new="";
+		$task_list= new Task_List($file);
+		
+		for ($i=0;$i<count($WebHook->text);$i++)
+		{
+			if ($i==0)
+				{
+					if ($WebHook->postData['channel_name']=='korshunov.tmp' || $WebHook->postData['channel_name']=='admin117.todo')
+						$task_comment_new=$task_comment_new." @".$WebHook->postData['user_name'];
+
+					$TaskNewList[]['orig']=trim($get_cmd_->getParam()." ".$task_comment_new);
+					$FirstTask=new Task(todo_format_pre(trim($get_cmd_->getParam()." ".$task_comment_new)));
+					$FirstTaskMetadata=trim("+".implode(" +",$FirstTask->projects)." @".implode(" @",$FirstTask->contexts));
+					/*
+					$FirstTaskMetadata=str_replace("+ ","",$FirstTaskMetadata);
+					$FirstTaskMetadata=str_replace("@ ","",$FirstTaskMetadata);
+					$FirstTaskMetadata=str_replace("  ","",$FirstTaskMetadata);
+					*/
+					$FirstTaskMetadata=preg_replace("/[+@ ] /","",$FirstTaskMetadata);
+				}
+			else
+				$TaskNewList[]['orig']=trim($WebHook->text[$i]." ".$FirstTaskMetadata);
+
+
+			$TaskNewList[count($TaskNewList)-1]['result']=$task_list->add(todo_format_pre($TaskNewList[count($TaskNewList)-1]['orig']));
+		
+			#$TaskNewList[][result]=$TASK_TEXT;
+			#$TaskNewList[][result]=$TASK_TEXT;
+			$task_list->save();
+		}
+		for ($i=0;$i<count($TaskNewList);$i++)
+		{
+			if ($task_list->getIdByText($TaskNewList[$i]['result'])!=false)
+			{
+				$task_id=$task_list->getIdByText($TaskNewList[$i]['result'])[0]+1;
+				$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Добавлена задача #".$task_id."\n".$task_list->task[$task_id-1]->getRawTask();
+			}
+			else
+				$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Ошибка добавления задачи:\nText:".$TaskNewList[$i]['orig']." - ".$TaskNewList[$i]['result'];
+		}
+		$WebHook->sendmessage($TEXT_MESSAGE);
 		
 		break;
 	case "todo done":
                 $TASK_TEXT=todo_done(substr($text,10)-1);
-		sendmessage("##### Your todo list:\n".todo_format(todo_list(true,"today")));
+		$WebHook->sendmessage("##### Your todo list:\n".todo_format(todo_list(true,"today")));
                 break;
 	case "todo x":
-		// Load task list
-		$roomID=get_cur_roomid(get_json());
-		$file='/usr/data/script/todo/'.$roomID.'.txt';
-				debug("\ntest\n");
 
 		$task_list= new Task_List($file);
-		debug("\n***  TEST \n");
 		$TaskCmd=new 	TaskCmd($text);
 		$TODO_CUR_BLOCK="";
-		if (!empty($TaskCmd->getParam()))
-			$TODO_CUR_BLOCK="x_time:".date('Y-m-d')." ".$TaskCmd->getParam();
 		$TEXT_MESSAGE="";
+		$task_comment_new="time_x:".date('H:i:s');
+		if ($WebHook->postData['channel_name']=='korshunov.tmp' || $WebHook->postData['channel_name']=='admin117.todo')
+			$task_comment_new=$task_comment_new." @".$WebHook->postData['user_name'];
+		if (strlen($TaskCmd->getParam())>0)
+			$task_comment_new=$task_comment_new." ".$TaskCmd->getParam();
 		
 		$TASK_ID_LIST=$TaskCmd->getId();
-		debug("Task_CMD:	".var_export($TaskCmd,true));
-		
-		#debug("Task list:	".var_export($task_list,true));
 		
 		for ($i=0;$i<count($TASK_ID_LIST);$i++)
 		{
 			$TODO_ID=$TaskCmd->getId()[$i];
-			debug("TODO_ID:	".var_export($TODO_ID,true));
-			//$TODO_OLD=todo_get_text($TODO_ID);
+#			debug("TODO_ID:	".var_export($TODO_ID,true));
 			$TODO_OLD=$task_list->task[$TODO_ID-1];
-#			debug("
-#			TODO_OLD:	".var_export($TODO_OLD,true));
-			
-//			todo_done($TODO_ID-1);
-			debug("recurrence
-			");
 			if ($task_list->task[$TODO_ID-1]->recurrence()!==false)
 			{
 				$task_list->task[]=new Task($task_list->task[$TODO_ID-1]->recurrence());
 			}
-			$task_comment_new="complete_t:".date('H:i:s');
-			if (strlen($TaskCmd->getParam())>0)
-				$task_comment_new=$task_comment_new." ".$TaskCmd->getParam();
 			$task_list->task[$TODO_ID-1]->setCompleted($task_comment_new);
 			
-#			$task_list->task[$TODO_ID-1]->setCompleted("complete_t:".date('Y-m-d_H-i-s')." test complete");
 			$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Task #".$TODO_ID." mark as done. \n**Text task:**".$TODO_OLD." ".$TODO_CUR_BLOCK."\n";
-#			debug("
-#			TEXT_MESSAGE1:	".var_export($TEXT_MESSAGE,true));
 		}
 		$task_list->save();
 		$TODO_NEW_FILTER=date('Y-m-d');
-		#$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Your todo list:\n".todo_format(todo_list(true,$TODO_NEW_FILTER));
+#		$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Your todo list:\n".todo_format(todo_list(true,$TODO_NEW_FILTER));
+		$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Your todo list:\n".todo_list(true,$TODO_NEW_FILTER);
 #		$TEXT_MESSAGE="Complete";
 		
 #		debug("
 #		Message2:".var_export($task_list,true));
 		
-		sendmessage($TEXT_MESSAGE);
+		$WebHook->sendmessage($TEXT_MESSAGE);
 #                $TASK_TEXT=todo_done(substr($text,6)-1);
-#                sendmessage("##### Task #".substr($text,6)." mark as done.\n **Text task:**".$TASK_TEXT." \n**Your todo list:**\n".todo_format(todo_list(true,"today")));
+#        	$WebHook->sendmessage("##### Task #".substr($text,6)." mark as done.\n **Text task:**".$TASK_TEXT." \n**Your todo list:**\n".todo_format(todo_list(true,"today")));
                 break;
 	case "todo *":
 		$TODO_NEW=trim(substr($text,6));
@@ -960,7 +967,7 @@ switch ($get_cmd)
 		$TODO_OLD=todo_get_text($TODO_NEW);
                 todo_change($TODO_NEW);
 #		$TODO_NEW=todo_get_text($TODO_ID);
-                sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".$TODO_NEW."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
+                $WebHook->sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".$TODO_NEW."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
                 break;
 	case "todo **":
 		$TODO_NEW=trim(substr($text,7));
@@ -969,12 +976,12 @@ switch ($get_cmd)
 		$TODO_OLD=todo_get_text($TODO_NEW);
                 todo_change($TODO_ID." ".trim($TODO_OLD)." ".trim(substr($TODO_NEW,strpos($TODO_NEW,' '))));
 #		$TODO_NEW=todo_get_text($TODO_ID);
-                sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_NEW."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
+                $WebHook->sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_NEW."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
                 break;
 	
 	case "todo change":
                 todo_change(substr($text,11));
-                sendmessage("Task #".substr($text,11)." changed. \nYour todo list:\n".todo_format(todo_list()));
+                $WebHook->sendmessage("Task #".substr($text,11)." changed. \nYour todo list:\n".todo_format(todo_list()));
                 break;
 	case "todo step":
 		$TaskCmd=new TaskCmd($text);
@@ -999,7 +1006,7 @@ switch ($get_cmd)
 		}
 		$TODO_NEW_FILTER="step:".date('Y-m-d');
 		$TEXT_MESSAGE=$TEXT_MESSAGE."\n#### Your todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER));
-		sendmessage($TEXT_MESSAGE);
+		$WebHook->sendmessage($TEXT_MESSAGE);
 
 /*		$TODO_NEW=trim(substr($text,9));
 		$TODO_ID=substr($TODO_NEW,0,strpos($TODO_NEW,' '));
@@ -1009,24 +1016,24 @@ switch ($get_cmd)
 
 #		todo_change($TODO_ID." ".trim($TODO_OLD)." step:cur_data".trim(substr($TODO_NEW,strpos($TODO_NEW,' '))));
 		todo_change($TODO_ID." ".trim($TODO_OLD)." ".$TODO_CUR_BLOCK);
-#		sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_CUR_BLOCK."\nYour todo list:\n".todo_format(todo_list(false,"today")));
-		sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_CUR_BLOCK."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
+#		$WebHook->sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_CUR_BLOCK."\nYour todo list:\n".todo_format(todo_list(false,"today")));
+		$WebHook->sendmessage("Task #".$TODO_ID." changed. \n**Old:**".$TODO_OLD."\n**New:**".trim($TODO_OLD)." ".$TODO_CUR_BLOCK."\nYour todo list:\n".todo_format(todo_list(false,$TODO_NEW_FILTER)));
 */
                 break;
 
 	case "todo start":
                 todo_status_change(substr($text,10),"start",$get_messages['user_name']);
-                sendmessage("Task #".substr($text,10)." status changed to start. \nYour todo list:\n".todo_format(todo_list(false,"today")));
+        	$WebHook->sendmessage("Task #".substr($text,10)." status changed to start. \nYour todo list:\n".todo_format(todo_list(false,"today")));
                 break;
 
 	case "todo stop":
                 todo_status_change(substr($text,9),"stop",$get_messages['user_name']);
-                sendmessage("Task #".substr($text,9)." status changed to stop. \nYour todo list:\n".todo_format(todo_list(false,"today")));
+        	$WebHook->sendmessage("Task #".substr($text,9)." status changed to stop. \nYour todo list:\n".todo_format(todo_list(false,"today")));
                 break;
 
 	case "todo finish":
                 todo_status_change(substr($text,11),"finish",$get_messages['user_name']);
-                sendmessage("Task #".substr($text,11)." status changed to finish. \nYour todo list:\n".todo_format(todo_list(false,"today")));
+                $WebHook->sendmessage("Task #".substr($text,11)." status changed to finish. \nYour todo list:\n".todo_format(todo_list(false,"today")));
                 break;
 
 
@@ -1034,46 +1041,49 @@ switch ($get_cmd)
 		$TASK_ID=substr($text,8)-1;
 		$TASK_ID_USER=$TASK_ID+1;
                 $TASK_TEXT=todo_del($TASK_ID);
-                sendmessage("Task #".$TASK_ID_USER." del. **Text**: ".$TASK_TEXT."\nYour todo list:\n".todo_format(todo_list(false,"today")));
+                $WebHook->sendmessage("Task #".$TASK_ID_USER." del. **Text**: ".$TASK_TEXT."\nYour todo list:\n".todo_format(todo_list(false,"today")));
                 break;
 	case "todo -":
 		$TASK_ID=substr($text,6)-1;
 		$TASK_ID_USER=$TASK_ID+1;
                 $TASK_TEXT=todo_del($TASK_ID);
-                sendmessage("Task #".$TASK_ID_USER." del. **Text**: ".$TASK_TEXT."\nYour todo list:\n".todo_format(todo_list(false,"today")));
+                $WebHook->sendmessage("Task #".$TASK_ID_USER." del. **Text**: ".$TASK_TEXT."\nYour todo list:\n".todo_format(todo_list(false,"today")));
                 break;
 	case "todo list":
+#	debug($text,1);
 		$filter=substr($text,10);
-		sendmessage("**Your todo list:**
+#		debug($filter,1);
+		$WebHook->sendmessage("**Your todo list:**
 ".todo_list(false,$filter));
 #".todo_format(todo_list(false,$filter)));
 		break;
 	case "todo list all":
 		$filter=substr($text,14);
-		sendmessage("**Your todo list:**
+		$WebHook->sendmessage("**Your todo list:**
 ".todo_list(true,$filter));
 #".todo_format(todo_list(true,$filter)));
 		break;
 	case "todo clear":
 		todo_clear();
-                sendmessage("Your todo cleared.");
+                $WebHook->sendmessage("Your todo cleared.");
                 break;
 	case "cron_add":
-		$roomID=get_cur_roomid(get_json());
+		#$roomID=get_cur_roomid(get_json());
+		$roomID=$WebHook->postData['channel_id'];
 		cron_add($roomID);
-                sendmessage("Added.");
+        	$WebHook->sendmessage("Added.");
                 break;
 	case "todo backup":
 		todo_backup();
-                sendmessage("Your todo list backuped.");
+        	$WebHook->sendmessage("Your todo list backuped.");
                 break;
 	case "todo restore":
 		todo_restore();
-                sendmessage("Your todo list restrored from last backup.");
+        	$WebHook->sendmessage("Your todo list restrored from last backup.");
                 break;
 
 	case "destroy room":
-		$roomID=get_cur_roomid(get_json());
+		$roomID=$WebHook->postData['channel_id'];
 		destroy_room($AuthToken,$roomID);
 
 	case "history_autoclear_save":
@@ -1081,36 +1091,26 @@ switch ($get_cmd)
 		$USER_ID=$get_messages['user_id'];
 		$USER_NAME=$get_messages['user_name'];
 		$CHANNEL_ID=$get_messages['channel_id'];
-#		$qweqwe=var_export(get_json(),true);
-#		sendmessage("Your message: ".$qweqwe);
                 history_autoclear_save($USER_ID,$USER_ID.substr($text,19));
 
-//                clear_history($AuthToken,$roomID);
-//              sendmessage("run clear history ".$roomID);
-//                sendmessage("Complete.");
-
 	default:
-//		sendmessage("Your message1: ");
-#		sendmessage("Your message: ".get_message(get_json()));
-//		sendmessage(get_message());
+//		$WebHook->sendmessage("Your message1: ");
+#		$WebHook->sendmessage("Your message: ".get_message(get_json()));
+//		$WebHook->sendmessage(get_message());
 }
 
 exit;
 if (strpos($get_cmd,"help")===0) 
 {
-	sendmessage("В любом чате можно использовать некоторые команды:
+	$WebHook->sendmessage("В любом чате можно использовать некоторые команды:
 
 * **help** - текущая подсказка
 * **clear history**  - очистить историю чата. Очищается вся история у всех присутствующих в чате.");
 }
 else
 {
-#	sendmessage("Pos: ".strpos($get_cmd,"qq"));
+#	$WebHook->sendmessage("Pos: ".strpos($get_cmd,"qq"));
 }
-//$qqq=var_export($data, true);
-//echo $AuthToken;
-//echo clear_history($AuthToken,"qweqwe");
-//sendmessage(get_message(get_json()));
 
 
 ?>

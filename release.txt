@@ -1,0 +1,70 @@
+commit 0940577f7565a1d60c7990b9639f2be372108c82
+Author: Ged <ged@korshunov.ru>
+Date:   Tue Apr 30 05:23:41 2019 +0300
+
+    # robot.php
+    	+ todo_list add filter by hash
+    
+    Signed-off-by: Ged <ged@korshunov.ru>
+
+commit 69fa7f8ef256b3efc18cc4947e0829f52361c747
+Author: Ged <ged@korshunov.ru>
+Date:   Tue Apr 30 04:58:05 2019 +0300
+
+    # todo_cmd.php
+    	* getIDFromText() - rsort -> sort
+    # robot.php
+    	* add user for create adn done task for room 'admin117.todo' and 'korshunov.tmp'
+    
+    Signed-off-by: Ged <ged@korshunov.ru>
+
+commit 7cf3315bd9e45ec15ea6e481adca5d15569f40a8
+Author: Ged <ged@korshunov.ru>
+Date:   Tue Apr 30 04:21:29 2019 +0300
+
+    # robot.php
+    	* чистка кода
+    	* переход на использование класса todo_cmd и task
+    	+ множественное добавление задач, каждая задача с новой строки
+    
+    # todo_cmd.php
+    	* обработка не текстовых команд (+,-,*)
+    # task.php
+    	+ getIdByText
+    	* getIdByHash - поправлено по виду getIdByText()
+    	+ add - функция добавления задачи в список задач с проверкой дублей
+    
+    Signed-off-by: Ged <ged@korshunov.ru>
+
+commit bc9bb08fdb5afa8b13fbe90d3bb6f586f645d5a5
+Author: Ged <ged@korshunov.ru>
+Date:   Tue Apr 30 00:50:51 2019 +0300
+
+    worked
+
+commit 37c74086680b88a525fd75543d24845368ea73aa
+Author: Ged <ged@korshunov.ru>
+Date:   Mon Apr 29 09:38:45 2019 +0300
+
+    ## robot.php * bug fix __history clear old__
+
+commit 4dc2240ab1b2efff7f7a2653e7b2e86b6af9dd8a
+Author: Ged <ged@korshunov.ru>
+Date:   Thu Apr 25 15:37:02 2019 +0300
+
+    * restore function clear_history
+    * function clear_history($authToken,$ROOM_ID,$BEFORE_DAY=1)
+    	add options $BEFORE_DAY
+    - clear_history_old
+
+commit 2dc367bc745a36acf6c9174458b09d074ad7993b
+Author: Ged <ged@korshunov.ru>
+Date:   Thu Apr 25 11:44:10 2019 +0300
+
+    Add file release.txt
+
+commit 40bdc51a100ebbb4c8348dda8d9b8f502f098a71
+Author: Ged <ged@korshunov.ru>
+Date:   Thu Apr 25 11:32:57 2019 +0300
+
+    Test log commit version

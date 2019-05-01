@@ -3,6 +3,15 @@ Gaming for todo list as RPG
 
 [Home page todo-rpglife](https://github.com/ged-nn/todo-rpglife)
 
+## test version
+Complete
+	+gitignore
+	* test2
+
+## 24.04.2019 23:48:29
+####
+    
+
 ## 23.04.2019 00:26:06
 ### readme.md
 
@@ -27,6 +36,7 @@ Gaming for todo list as RPG
 
 ## 23.04.2019 00:05:14
 ### robot.php
+Пока так называется файл для взаимодействия с [RocketChat](http://rocket.chat/)
     + Вывод таблицы с распределением очков по проектам и контекстам
     * Вытащил все регистрационные данные в файл конфигурации
     + обрабатываем очки из массива
@@ -43,3 +53,6 @@ Gaming for todo list as RPG
 	
 ## 2019/04/22 22:25:05
 Что-то залили на GitHub. Пока все очень страшно, но начало положено.
+159e816 * Fix bag Task_list->save
+38cbfc5 * bug not add new task (filter score bad)
+e64c628 Test complete2

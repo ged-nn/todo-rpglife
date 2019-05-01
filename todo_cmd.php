@@ -97,7 +97,7 @@ class TaskCmd
     protected function getCmdFromText($text) {
         $text=strtolower($text);
         
-        $pattern = "/^([a-z]+) ([a-z-+*]+)/";
+        $pattern = "/^([a-z]+) ([a-z]+)/";
         if (preg_match($pattern, $text, $matches) == 1) {
             // Rather than throwing exceptions around, silently bypass this
             try {
@@ -106,6 +106,16 @@ class TaskCmd
                 return $input;
             }
         };
+	$pattern = "/^([a-z]+) ([-+*]+)/";
+        if (preg_match($pattern, $text, $matches) == 1) {
+            // Rather than throwing exceptions around, silently bypass this
+            try {
+                $this->cmd = trim($matches[0]);
+            } catch (\Exception $e) {
+                return $input;
+            }
+        };
+	
     }
     protected function getIDFromText($text) {
 #	echo "getIDFromText: ".var_export($text,true);
@@ -120,14 +130,17 @@ class TaskCmd
             try {
 							$this->rawId=trim($matches[0]);
 							$this->id=array_unique(explode(",", trim($matches[0])));
-							rsort($this->id);
+							sort($this->id);
             } catch (\Exception $e) {
                 return $input;
             }
         };
     }
     protected function getParamFromText() {
-	$this->param = trim(substr($this->rawCmd,strlen($this->cmdRaw." ".$this->rawId)));
+	if (in_array(explode(" ",$this->cmd)[1],$this->ListcmdNeedID))
+		$this->param = trim(substr($this->rawCmd,strlen($this->cmdRaw." ".$this->rawId)));
+	else
+	    $this->param = trim(substr($this->rawCmd,strlen($this->cmdRaw)));
     }
 		
     public function getCmd() {
